@@ -24,6 +24,7 @@ data = {
     "scope": "read identity",
 }
 headers = {"User-Agent": USER_AGENT}
+
 r = requests.post("https://www.reddit.com/api/v1/access_token",
                   auth=auth, data=data, headers=headers)
 r.raise_for_status()
@@ -34,7 +35,7 @@ oauth_headers = {
     "User-Agent": USER_AGENT,
 }
 
-# ---- backoff helper (keep) ----
+# ---- your backoff helper (kept) ----
 def get_with_backoff(url, headers, params=None, tries=5):
     for t in range(tries):
         resp = requests.get(url, headers=headers, params=params)
@@ -51,19 +52,44 @@ def show_rate(resp):
     reset = resp.headers.get("x-ratelimit-reset")
     print(f"Rate — Used: {used}, Remaining: {rem}, Reset(min): {reset}")
 
-# ---- date helpers ----
+# ---- date helpers (the key fix) ----
 def to_epoch_start(date_str: str) -> int:
+    # 00:00:00 UTC at the start of the day
     return int(dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp())
 
 def to_epoch_end(date_str: str) -> int:
+    # 23:59:59 UTC at the end of the day
     base = dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
     return int((base + dt.timedelta(days=1, seconds=-1)).timestamp())
 
-def iso_utc_from_epoch(s: int) -> str:
-    return dt.datetime.utcfromtimestamp(int(s)).replace(tzinfo=dt.timezone.utc).isoformat()
+# optional: month windows, if you want month-by-month paging
+def month_windows_exact(start_date: str, end_date: str):
+    """Yield (start, end) as the exact calendar months overlapping the given range."""
+    start = dt.datetime.strptime(start_date, "%Y-%m-%d").date()
+    end   = dt.datetime.strptime(end_date, "%Y-%m-%d").date()
+    cur = start.replace(day=1)
+    while cur <= end.replace(day=1):
+        nxt = (cur.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
+        last = nxt - dt.timedelta(days=1)
+        # clamp to user range
+        s = max(cur, start)
+        e = min(last, end)
+        yield (s.isoformat(), e.isoformat())
+        cur = nxt
 
-# ---- LISTING crawl (/new) so we don't rely on search ----
 def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_page=100, max_pages=200):
+    """
+    Crawl /r/{sub}/new (listing) and filter by created_utc between start_date..end_date (inclusive).
+    Stops early once items fall below start epoch.
+    """
+    def to_epoch_start(date_str: str) -> int:
+        import datetime as dt
+        return int(dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp())
+    def to_epoch_end(date_str: str) -> int:
+        import datetime as dt
+        base = dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
+        return int((base + dt.timedelta(days=1, seconds=-1)).timestamp())
+
     start = to_epoch_start(start_date)
     end   = to_epoch_end(end_date)
 
@@ -86,9 +112,12 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_
         stop = False
         for c in children:
             d = c["data"]
-            ts = d.get("created_utc", 0) or 0
+            ts = d.get("created_utc", 0)
+            if ts is None:
+                continue
+            # listing is newest->older; if we've gone earlier than start, we can stop the crawl
             if ts < start:
-                stop = True  # we’ve gone older than start range; safe to stop
+                stop = True
                 continue
             if start <= ts <= end:
                 results.append({
@@ -96,7 +125,6 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_
                     "title": d.get("title"),
                     "author": d.get("author"),
                     "created_utc": ts,
-                    "created_dt": iso_utc_from_epoch(ts),   # <-- human-readable
                     "score": d.get("score"),
                     "permalink": f"https://reddit.com{d.get('permalink')}",
                     "subreddit": d.get("subreddit"),
@@ -111,95 +139,28 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_
 
     return results
 
-def dedupe_by_id(rows):
-    seen = set()
-    out = []
-    for r in rows:
-        pid = r.get("id")
-        if pid and pid not in seen:
-            out.append(r)
-            seen.add(pid)
-    return out
-
-def write_posts_csv(rows, out_csv):
+def scrape_to_csv_via_listing(subs, global_start, global_end, out_csv):
+    rows = []
+    for sub in subs:
+        print(f"Crawling r/{sub} {global_start}..{global_end} via /new ...")
+        posts = fetch_posts_via_listing(sub, global_start, global_end, oauth_headers)
+        rows.extend(posts)
+        print(f"  -> {len(posts)} posts")
     Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["id", "title", "author", "created_utc", "created_dt", "score", "permalink", "subreddit"]
-    # sort newest -> oldest for convenience
-    rows_sorted = sorted(rows, key=lambda x: x.get("created_utc", 0), reverse=True)
+    fieldnames = ["id", "title", "author", "created_utc", "score", "permalink", "subreddit"]
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
-        w.writerows(rows_sorted)
-    print(f"Wrote {len(rows_sorted)} posts -> {out_csv}")
+        w.writerows(rows)
+    print(f"Wrote {len(rows)} rows -> {out_csv}")
 
-def write_user_counts_csv(rows, out_csv_counts):
-    # aggregate per author
-    stats = {}
-    for r in rows:
-        author = r.get("author") or "[deleted]"
-        if author not in stats:
-            stats[author] = {
-                "author": author,
-                "post_count": 0,
-                "first_post_dt": r.get("created_dt"),
-                "last_post_dt": r.get("created_dt"),
-                "sum_score": 0,
-            }
-        stats[author]["post_count"] += 1
-        stats[author]["sum_score"] += (r.get("score") or 0)
-
-        # update first/last (chronological)
-        cur = r.get("created_dt")
-        if cur:
-            if stats[author]["first_post_dt"] is None or cur < stats[author]["first_post_dt"]:
-                stats[author]["first_post_dt"] = cur
-            if stats[author]["last_post_dt"] is None or cur > stats[author]["last_post_dt"]:
-                stats[author]["last_post_dt"] = cur
-
-    # convert to rows; compute avg_score
-    out_rows = []
-    for a, s in stats.items():
-        pc = s["post_count"]
-        avg = (s["sum_score"] / pc) if pc else 0
-        out_rows.append({
-            "author": a,
-            "post_count": pc,
-            "avg_score": round(avg, 2),
-            "first_post_dt": s["first_post_dt"],
-            "last_post_dt": s["last_post_dt"],
-        })
-
-    # sort by post_count desc
-    out_rows.sort(key=lambda x: x["post_count"], reverse=True)
-
-    Path(out_csv_counts).parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["author", "post_count", "avg_score", "first_post_dt", "last_post_dt"]
-    with open(out_csv_counts, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        w.writerows(out_rows)
-    print(f"Wrote {len(out_rows)} users -> {out_csv_counts}")
-
-def scrape_to_csv_via_listing(subs, global_start, global_end, out_csv_posts, out_csv_user_counts):
-    all_rows = []
-    for sub in subs:
-        print(f"Crawling r/{sub} {global_start}..{global_end} via /new ...")
-        rows = fetch_posts_via_listing(sub, global_start, global_end, oauth_headers)
-        print(f"  -> {len(rows)} posts")
-        all_rows.extend(rows)
-
-    all_rows = dedupe_by_id(all_rows)
-    if not all_rows:
-        print("No rows to write.")
-        return
-    write_posts_csv(all_rows, out_csv_posts)
-    write_user_counts_csv(all_rows, out_csv_user_counts)
 
 # ===== configure your run here =====
-SUBREDDITS = ["apartmentliving", "memes"]     # no 'r/' prefix,  
-GLOBAL_START = "2025-07-30"
-GLOBAL_END   = "2025-08-10"
-OUT_POSTS_CSV = "csv_data/reddit_posts.csv"
-OUT_USERS_CSV = "csv_data/user_post_counts.csv"
+SUBREDDITS = ["apartmentliving"]     # use canonical lowercase
+SUBREDDITS = ["apartmentliving"]   # no "r/"
+GLOBAL_START = "2025-07-19"
+GLOBAL_END   = "2025-08-19"
+OUT_CSV = "csv_data/reddit_posts.csv"
 
-scrape_to_csv_via_listing(SUBREDDITS, GLOBAL_START, GLOBAL_END, OUT_POSTS_CSV, OUT_USERS_CSV)
+scrape_to_csv_via_listing(SUBREDDITS, GLOBAL_START, GLOBAL_END, OUT_CSV)
+
