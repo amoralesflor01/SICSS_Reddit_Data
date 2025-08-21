@@ -6,7 +6,7 @@ import datetime as dt
 import csv
 from pathlib import Path
 
-
+# ---- config & token ----
 with open("config.json") as f:
     config = json.load(f)
 
@@ -184,22 +184,16 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, target_pos
     print(f"  Finished: {len(results)} posts collected ({reason})")
     return results
 
-def scrape_to_csv_via_listing(subs, global_start, global_end, out_csv, posts_per_sub=1000):
+def scrape_to_csv_via_listing(subs, global_start, global_end, output_dir="csv_data", posts_per_sub=1000):
     """
-    Enhanced version that collects more data per subreddit and includes post content.
+    Enhanced version that creates separate CSV files for each subreddit.
+    Files named as: {subreddit}_data.csv
     """
-    all_rows = []
-    for sub in subs:
-        print(f"Crawling r/{sub} {global_start}..{global_end} via /new ...")
-        posts = fetch_posts_via_listing(sub, global_start, global_end, oauth_headers, target_posts=posts_per_sub)
-        all_rows.extend(posts)
-        print(f"  -> {len(posts)} posts collected for r/{sub}")
-        
-        # Small delay between subreddits to be nice to Reddit's servers
-        time.sleep(1)
+    total_posts = 0
+    created_files = []
     
     # Create output directory if it doesn't exist
-    Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     # Updated fieldnames to include new columns
     fieldnames = [
@@ -207,36 +201,69 @@ def scrape_to_csv_via_listing(subs, global_start, global_end, out_csv, posts_per
         "post_content", "is_self", "url", "num_comments"
     ]
     
-    with open(out_csv, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        w.writerows(all_rows)
+    for sub in subs:
+        print(f"Crawling r/{sub} {global_start}..{global_end} via /new ...")
+        posts = fetch_posts_via_listing(sub, global_start, global_end, oauth_headers, target_posts=posts_per_sub)
+        
+        if posts:  # Only create file if we have posts
+            # Create filename: subreddit_data.csv
+            filename = f"{sub}_data.csv"
+            filepath = Path(output_dir) / filename
+            
+            # Write posts to individual CSV file
+            with open(filepath, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=fieldnames)
+                w.writeheader()
+                w.writerows(posts)
+            
+            created_files.append(str(filepath))
+            total_posts += len(posts)
+            
+            print(f"  -> {len(posts)} posts saved to: {filepath}")
+            
+            # Stats for this subreddit
+            text_posts = sum(1 for row in posts if row.get('is_self'))
+            link_posts = len(posts) - text_posts
+            print(f"     Text posts: {text_posts}, Link posts: {link_posts}")
+        else:
+            print(f"  -> No posts found for r/{sub}")
+        
+        # Small delay between subreddits to be nice to Reddit's servers
+        time.sleep(1)
     
-    print("\n=== COMPLETE ===")
-    print(f"Total posts collected: {len(all_rows)}")
-    print(f"Output saved to: {out_csv}")
+    print("\n=== SCRAPING COMPLETE ===")
+    print(f"Total subreddits processed: {len(subs)}")
+    print(f"Total posts collected: {total_posts}")
+    print(f"Files created: {len(created_files)}")
+    print("\nGenerated files:")
+    for file in created_files:
+        print(f"  - {file}")
     
-    # Summary stats
-    text_posts = sum(1 for row in all_rows if row.get('is_self'))
-    link_posts = len(all_rows) - text_posts
-    print(f"Text posts: {text_posts}")
-    print(f"Link posts: {link_posts}")
-    
-    return all_rows
+    return created_files
 
 # ===== CONFIGURE YOUR RUN HERE =====
-SUBREDDITS = ["apartmentliving"]     # use canonical lowercase
+SUBREDDITS = [
+    "apartmentliving", 
+    # "political", 
+    # "ucsd"
+]  # Each will get its own CSV file
 GLOBAL_START = "2025-07-19"  # START of your date range
 GLOBAL_END   = "2025-08-19"  # END of your date range  
-OUT_CSV = "csv_data/reddit_posts.csv"
-POSTS_PER_SUBREDDIT = 1000  # Will stop at 1000 posts OR end of date range, whichever comes first
+OUTPUT_DIR = "csv_data"      # Directory where CSV files will be saved
+POSTS_PER_SUBREDDIT = 1000   # Will stop at 1000 posts OR end of date range, whichever comes first
 
 print("=== Reddit Scraper Configuration ===")
 print(f"Subreddits: {SUBREDDITS}")
 print(f"Date range: {GLOBAL_START} to {GLOBAL_END}")
 print(f"Target posts per subreddit: {POSTS_PER_SUBREDDIT}")
-print(f"Output file: {OUT_CSV}")
+print(f"Output directory: {OUTPUT_DIR}")
+print("File naming: [subreddit]_data.csv")
 print(f"Strategy: Collect up to {POSTS_PER_SUBREDDIT} posts within date range, stop at whichever limit hits first")
 print("=" * 50)
 
-scrape_to_csv_via_listing(SUBREDDITS, GLOBAL_START, GLOBAL_END, OUT_CSV, POSTS_PER_SUBREDDIT)
+# Run the enhanced scraper
+created_files = scrape_to_csv_via_listing(SUBREDDITS, GLOBAL_START, GLOBAL_END, OUTPUT_DIR, POSTS_PER_SUBREDDIT)
+
+print("\n=== FILES READY FOR ANALYSIS ===")
+for file in created_files:
+    print(f"✓ {file}")
