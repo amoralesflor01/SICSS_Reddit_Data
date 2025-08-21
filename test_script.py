@@ -6,7 +6,7 @@ import datetime as dt
 import csv
 from pathlib import Path
 
-# ---- config & token ----
+
 with open("config.json") as f:
     config = json.load(f)
 
@@ -35,7 +35,6 @@ oauth_headers = {
     "User-Agent": USER_AGENT,
 }
 
-# ---- your backoff helper (kept) ----
 def get_with_backoff(url, headers, params=None, tries=5):
     for t in range(tries):
         resp = requests.get(url, headers=headers, params=params)
@@ -46,23 +45,25 @@ def get_with_backoff(url, headers, params=None, tries=5):
         time.sleep(retry_after if retry_after > 0 else 2 * (t + 1))
     resp.raise_for_status()
 
+
 def show_rate(resp):
     used  = resp.headers.get("x-ratelimit-used")
     rem   = resp.headers.get("x-ratelimit-remaining")
     reset = resp.headers.get("x-ratelimit-reset")
     print(f"Rate — Used: {used}, Remaining: {rem}, Reset(min): {reset}")
 
-# ---- date helpers (the key fix) ----
+
 def to_epoch_start(date_str: str) -> int:
     # 00:00:00 UTC at the start of the day
     return int(dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp())
+
 
 def to_epoch_end(date_str: str) -> int:
     # 23:59:59 UTC at the end of the day
     base = dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
     return int((base + dt.timedelta(days=1, seconds=-1)).timestamp())
 
-# optional: month windows, if you want month-by-month paging
+
 def month_windows_exact(start_date: str, end_date: str):
     """Yield (start, end) as the exact calendar months overlapping the given range."""
     start = dt.datetime.strptime(start_date, "%Y-%m-%d").date()
@@ -77,6 +78,7 @@ def month_windows_exact(start_date: str, end_date: str):
         yield (s.isoformat(), e.isoformat())
         cur = nxt
 
+
 def fetch_posts_via_listing(subreddit, start_date, end_date, headers, target_posts=1000, limit_per_page=100, max_pages=500):
     """
     Crawl /r/{sub}/new (listing) and filter by created_utc between start_date..end_date (inclusive).
@@ -89,10 +91,13 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, target_pos
     def to_epoch_start(date_str: str) -> int:
         import datetime as dt
         return int(dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc).timestamp())
+
+
     def to_epoch_end(date_str: str) -> int:
         import datetime as dt
         base = dt.datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
         return int((base + dt.timedelta(days=1, seconds=-1)).timestamp())
+
 
     start = to_epoch_start(start_date)
     end   = to_epoch_end(end_date)
@@ -184,6 +189,7 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, target_pos
     print(f"  Finished: {len(results)} posts collected ({reason})")
     return results
 
+
 def scrape_to_csv_via_listing(subs, global_start, global_end, output_dir="csv_data", posts_per_sub=1000):
     """
     Enhanced version that creates separate CSV files for each subreddit.
@@ -197,8 +203,8 @@ def scrape_to_csv_via_listing(subs, global_start, global_end, output_dir="csv_da
     
     # Updated fieldnames to include new columns
     fieldnames = [
-        "id", "title", "author", "created_utc", "score", "permalink", "subreddit",
-        "post_content", "is_self", "url", "num_comments"
+        "post_id", "post_title", "username", "created_utc-unix", "votes", "reddit_url", "subreddit",
+        "post_content", "is_text", "url_post", "comments"
     ]
     
     for sub in subs:
@@ -243,12 +249,12 @@ def scrape_to_csv_via_listing(subs, global_start, global_end, output_dir="csv_da
 
 # ===== CONFIGURE YOUR RUN HERE =====
 SUBREDDITS = [
-    "apartmentliving", 
-    # "political", 
-    # "ucsd"
+    "politics", 
+    "immigration", 
 ]  # Each will get its own CSV file
-GLOBAL_START = "2025-07-19"  # START of your date range
-GLOBAL_END   = "2025-08-19"  # END of your date range  
+
+GLOBAL_START = "2025-01-01"  # START of your date range - FORMAT: YYYY-MM--DD
+GLOBAL_END   = "2025-07-01"  # END of your date range - FORMAT: YYYY-MM--DD
 OUTPUT_DIR = "csv_data"      # Directory where CSV files will be saved
 POSTS_PER_SUBREDDIT = 1000   # Will stop at 1000 posts OR end of date range, whichever comes first
 
@@ -261,7 +267,6 @@ print("File naming: [subreddit]_data.csv")
 print(f"Strategy: Collect up to {POSTS_PER_SUBREDDIT} posts within date range, stop at whichever limit hits first")
 print("=" * 50)
 
-# Run the enhanced scraper
 created_files = scrape_to_csv_via_listing(SUBREDDITS, GLOBAL_START, GLOBAL_END, OUTPUT_DIR, POSTS_PER_SUBREDDIT)
 
 print("\n=== FILES READY FOR ANALYSIS ===")
