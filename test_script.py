@@ -6,7 +6,7 @@ import datetime as dt
 import csv
 from pathlib import Path
 
-# ---- config & token ----
+
 with open("config.json") as f:
     config = json.load(f)
 
@@ -77,10 +77,14 @@ def month_windows_exact(start_date: str, end_date: str):
         yield (s.isoformat(), e.isoformat())
         cur = nxt
 
-def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_page=100, max_pages=200):
+def fetch_posts_via_listing(subreddit, start_date, end_date, headers, target_posts=1000, limit_per_page=100, max_pages=500):
     """
     Crawl /r/{sub}/new (listing) and filter by created_utc between start_date..end_date (inclusive).
-    Stops early once items fall below start epoch.
+    Stops when EITHER:
+    1. We reach target_posts (e.g., 1000), OR  
+    2. We go past the end_date (earlier than start epoch), OR
+    3. We run out of posts
+    Now includes post content (selftext).
     """
     def to_epoch_start(date_str: str) -> int:
         import datetime as dt
@@ -99,7 +103,10 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_
     after = None
     pages = 0
 
-    while pages < max_pages:
+    print(f"  Date range: {start_date} to {end_date}")
+    print(f"  Target: {target_posts} posts for r/{subreddit} (will stop at target OR end of date range)")
+
+    while pages < max_pages and len(results) < target_posts:
         if after:
             params["after"] = after
         resp = get_with_backoff(url, headers, params=params)
@@ -107,19 +114,31 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_
         data = resp.json().get("data", {})
         children = data.get("children", [])
         if not children:
+            print(f"  No more posts found after {pages} pages")
             break
 
-        stop = False
+        stop_crawling = False
         for c in children:
             d = c["data"]
             ts = d.get("created_utc", 0)
             if ts is None:
                 continue
-            # listing is newest->older; if we've gone earlier than start, we can stop the crawl
+            
+            # Since /new is newest->oldest, if we've gone past our start date, we're done
             if ts < start:
-                stop = True
-                continue
+                print(f"  Reached end of date range (post from {dt.datetime.fromtimestamp(ts, dt.timezone.utc).date()})")
+                stop_crawling = True
+                break
+            
+            # Only collect posts within our date range    
             if start <= ts <= end:
+                # Get post content - handle different post types
+                post_content = ""
+                if d.get("is_self", False):  # Text post
+                    post_content = d.get("selftext", "")
+                elif d.get("url"):  # Link post
+                    post_content = f"Link post: {d.get('url')}"
+                
                 results.append({
                     "id": d.get("id"),
                     "title": d.get("title"),
@@ -128,39 +147,96 @@ def fetch_posts_via_listing(subreddit, start_date, end_date, headers, limit_per_
                     "score": d.get("score"),
                     "permalink": f"https://reddit.com{d.get('permalink')}",
                     "subreddit": d.get("subreddit"),
+                    "post_content": post_content,  # NEW: actual post content
+                    "is_self": d.get("is_self", False),  # NEW: is it a text post?
+                    "url": d.get("url", ""),  # NEW: external URL if link post
+                    "num_comments": d.get("num_comments", 0),  # NEW: comment count
                 })
-        if stop:
+                
+                # Stop if we've reached our target posts
+                if len(results) >= target_posts:
+                    print(f"  Reached target of {target_posts} posts!")
+                    stop_crawling = True
+                    break
+                    
+        if stop_crawling:
             break
 
         after = data.get("after")
         if not after:
+            print(f"  Reached end of available posts after {pages} pages")
             break
         pages += 1
+        
+        # Progress update every 5 pages (more frequent for better tracking)
+        if pages % 5 == 0:
+            print(f"  Progress: {len(results)} posts collected after {pages} pages")
 
+    # Final summary for this subreddit
+    reason = ""
+    if len(results) >= target_posts:
+        reason = f"reached target of {target_posts} posts"
+    elif pages >= max_pages:
+        reason = "hit max pages limit"
+    else:
+        reason = "exhausted available posts in date range"
+    
+    print(f"  Finished: {len(results)} posts collected ({reason})")
     return results
 
-def scrape_to_csv_via_listing(subs, global_start, global_end, out_csv):
-    rows = []
+def scrape_to_csv_via_listing(subs, global_start, global_end, out_csv, posts_per_sub=1000):
+    """
+    Enhanced version that collects more data per subreddit and includes post content.
+    """
+    all_rows = []
     for sub in subs:
         print(f"Crawling r/{sub} {global_start}..{global_end} via /new ...")
-        posts = fetch_posts_via_listing(sub, global_start, global_end, oauth_headers)
-        rows.extend(posts)
-        print(f"  -> {len(posts)} posts")
+        posts = fetch_posts_via_listing(sub, global_start, global_end, oauth_headers, target_posts=posts_per_sub)
+        all_rows.extend(posts)
+        print(f"  -> {len(posts)} posts collected for r/{sub}")
+        
+        # Small delay between subreddits to be nice to Reddit's servers
+        time.sleep(1)
+    
+    # Create output directory if it doesn't exist
     Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = ["id", "title", "author", "created_utc", "score", "permalink", "subreddit"]
+    
+    # Updated fieldnames to include new columns
+    fieldnames = [
+        "id", "title", "author", "created_utc", "score", "permalink", "subreddit",
+        "post_content", "is_self", "url", "num_comments"
+    ]
+    
     with open(out_csv, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
-        w.writerows(rows)
-    print(f"Wrote {len(rows)} rows -> {out_csv}")
+        w.writerows(all_rows)
+    
+    print("\n=== COMPLETE ===")
+    print(f"Total posts collected: {len(all_rows)}")
+    print(f"Output saved to: {out_csv}")
+    
+    # Summary stats
+    text_posts = sum(1 for row in all_rows if row.get('is_self'))
+    link_posts = len(all_rows) - text_posts
+    print(f"Text posts: {text_posts}")
+    print(f"Link posts: {link_posts}")
+    
+    return all_rows
 
-
-# ===== configure your run here =====
+# ===== CONFIGURE YOUR RUN HERE =====
 SUBREDDITS = ["apartmentliving"]     # use canonical lowercase
-SUBREDDITS = ["apartmentliving"]   # no "r/"
-GLOBAL_START = "2025-07-19"
-GLOBAL_END   = "2025-08-19"
+GLOBAL_START = "2025-07-19"  # START of your date range
+GLOBAL_END   = "2025-08-19"  # END of your date range  
 OUT_CSV = "csv_data/reddit_posts.csv"
+POSTS_PER_SUBREDDIT = 1000  # Will stop at 1000 posts OR end of date range, whichever comes first
 
-scrape_to_csv_via_listing(SUBREDDITS, GLOBAL_START, GLOBAL_END, OUT_CSV)
+print("=== Reddit Scraper Configuration ===")
+print(f"Subreddits: {SUBREDDITS}")
+print(f"Date range: {GLOBAL_START} to {GLOBAL_END}")
+print(f"Target posts per subreddit: {POSTS_PER_SUBREDDIT}")
+print(f"Output file: {OUT_CSV}")
+print(f"Strategy: Collect up to {POSTS_PER_SUBREDDIT} posts within date range, stop at whichever limit hits first")
+print("=" * 50)
 
+scrape_to_csv_via_listing(SUBREDDITS, GLOBAL_START, GLOBAL_END, OUT_CSV, POSTS_PER_SUBREDDIT)
