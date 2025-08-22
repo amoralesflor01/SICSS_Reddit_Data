@@ -1,6 +1,2 @@
 config.json
-recent_data/*
-past_data/*
-historical_data/*
-# OLD FOLDER
 csv_data/*
