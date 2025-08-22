@@ -225,7 +225,11 @@ def scrape_to_csv_via_listing(subs, global_start, global_end, out_csv, posts_per
     return all_rows
 
 # ===== CONFIGURE YOUR RUN HERE =====
-SUBREDDITS = ["politics"]     # use canonical lowercase
+SUBREDDITS = [#"politics", 
+    "politicaldiscussion", 
+    # "immigration"
+]     # use canonical lowercase
+
 GLOBAL_START = "2025-07-19"  # START of your date range
 GLOBAL_END   = "2025-08-19"  # END of your date range  
 OUT_CSV = "csv_data/reddit_posts.csv"
