@@ -540,9 +540,9 @@ def scrape_to_csv_research_grade(subs, global_start, global_end, output_dir="csv
 
 RESEARCH_NAME = "Political Discussion Analysis 2025"
 SUBREDDITS = [
-    "politics", 
+    # "politics", 
     "politicaldiscussion", 
-    "immigration"
+    # "immigration"
 ]
 
 # Your specific date ranges
