@@ -472,6 +472,10 @@ def enhance_posts_with_comments(posts, headers):
 def scrape_to_csv_comprehensive(subs, global_start, global_end, output_dir="csv_data", posts_per_sub=1000):
     """Comprehensive scraper optimized for historical data collection with comments"""
     
+    # Start timing
+    start_time = time.time()
+    start_datetime = dt.datetime.now()
+    
     total_posts = 0
     created_files = []
     collection_report = []
@@ -577,28 +581,61 @@ def scrape_to_csv_comprehensive(subs, global_start, global_end, output_dir="csv_
     for report in collection_report:
         print(f"  r/{report['subreddit']}: {report['posts_collected']} posts ({report['coverage_percent']}% of target)")
     
+    # Calculate runtime
+    end_time = time.time()
+    end_datetime = dt.datetime.now()
+    total_runtime_seconds = end_time - start_time
+    total_runtime_minutes = total_runtime_seconds / 60
+    total_runtime_hours = total_runtime_minutes / 60
+    
     # Save comprehensive metadata
     metadata_file = Path(output_dir) / f"collection_metadata_{global_start}_to_{global_end}.json"
     metadata = {
-        "collection_date": dt.datetime.now().isoformat(),
+        "collection_date": start_datetime.isoformat(),
+        "completion_date": end_datetime.isoformat(),
+        "runtime": {
+            "total_seconds": round(total_runtime_seconds, 2),
+            "total_minutes": round(total_runtime_minutes, 2),
+            "total_hours": round(total_runtime_hours, 2),
+            "formatted_duration": format_duration(total_runtime_seconds)
+        },
         "date_range": {"start": global_start, "end": global_end},
         "target_posts_per_sub": posts_per_sub,
         "total_posts_collected": total_posts,
         "subreddits": collection_report,
         "files_created": created_files,
         "collection_strategy": "weekly_windows_with_enhanced_fallbacks_and_comments",
-        "comment_collection": True
+        "comment_collection": True,
+        "performance_metrics": {
+            "posts_per_minute": round(total_posts / total_runtime_minutes, 2) if total_runtime_minutes > 0 else 0,
+            "average_seconds_per_post": round(total_runtime_seconds / total_posts, 2) if total_posts > 0 else 0
+        }
     }
     
     with open(metadata_file, "w") as f:
         json.dump(metadata, f, indent=2)
     
     print(f"\n✓ Metadata saved to: {metadata_file}")
+    print(f"Total runtime: {format_duration(total_runtime_seconds)}")
+    print(f"Performance: {metadata['performance_metrics']['posts_per_minute']} posts/min")
     print("\nFILES READY FOR ANALYSIS:")
     for file in created_files:
         print(f"  - {file}")
     
     return created_files, collection_report
+
+
+def format_duration(seconds):
+    """Format duration in a human-readable way"""
+    if seconds < 60:
+        return f"{seconds:.1f} seconds"
+    elif seconds < 3600:
+        minutes = seconds / 60
+        return f"{minutes:.1f} minutes"
+    else:
+        hours = seconds / 3600
+        remaining_minutes = (seconds % 3600) / 60
+        return f"{hours:.1f} hours, {remaining_minutes:.1f} minutes"
 
 # ===== RESEARCH CONFIGURATION =====
 RESEARCH_NAME = "Political Discussions Jan-July 2025"
@@ -612,7 +649,7 @@ SUBREDDITS = [
 GLOBAL_START = "2025-01-01" 
 GLOBAL_END   = "2025-07-01"  
 OUTPUT_DIR = "csv_data"
-POSTS_PER_SUBREDDIT = 2000
+POSTS_PER_SUBREDDIT = 2000  # Increased target since we're covering 7 months
 
 
 if __name__ == "__main__":
