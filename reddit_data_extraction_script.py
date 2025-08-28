@@ -63,8 +63,8 @@ def to_epoch_end(date_str: str) -> int:
     return int((base + dt.timedelta(days=1, seconds=-1)).timestamp())
 
 
-def fetch_post_comments(subreddit, post_id, headers):
-    """Fetch comments for a specific post and return top 3 with different vote ranges"""
+def fetch_post_comments(subreddit, post_id, headers, num_comments=3):
+    """Fetch comments for a specific post and return top N with different vote ranges"""
     comments_url = f"https://oauth.reddit.com/r/{subreddit}/comments/{post_id}"
     
     try:
@@ -73,7 +73,7 @@ def fetch_post_comments(subreddit, post_id, headers):
         
         # Reddit returns [post_data, comments_data]
         if len(data) < 2:
-            return get_empty_comments()
+            return get_empty_comments(num_comments)
         
         comments_listing = data[1].get("data", {}).get("children", [])
         
@@ -91,84 +91,92 @@ def fetch_post_comments(subreddit, post_id, headers):
                     })
         
         if not valid_comments:
-            return get_empty_comments()
+            return get_empty_comments(num_comments)
         
         # Sort by score to get different ranges
         valid_comments.sort(key=lambda x: x["score"], reverse=True)
         
         # Select comments with different vote ranges
-        selected_comments = select_diverse_comments(valid_comments)
+        selected_comments = select_diverse_comments(valid_comments, num_comments)
         
         return selected_comments
         
     except Exception as e:
         print(f"    Error fetching comments for {post_id}: {e}")
-        return get_empty_comments()
+        return get_empty_comments(num_comments)
 
 
-def select_diverse_comments(comments):
-    """Select 3 comments with diverse vote counts: high, mid, low/zero"""
+def select_diverse_comments(comments, num_comments=3):
+    """Select diverse comments with configurable count"""
     if not comments:
-        return get_empty_comments()
+        return get_empty_comments(num_comments)
     
     # Sort by score (highest first)
     comments.sort(key=lambda x: x["score"], reverse=True)
     
-    selected = {
-        "comment_one_content": "",
-        "comment_one_votes": 0,
-        "comment_two_content": "",
-        "comment_two_votes": 0,
-        "comment_three_content": "",
-        "comment_three_votes": 0,
-    }
+    # Initialize selected comments structure
+    selected = get_empty_comments(num_comments)
     
-    if len(comments) == 1:
-        # Only one comment available
-        selected["comment_one_content"] = comments[0]["content"][:500]  # Limit length
-        selected["comment_one_votes"] = comments[0]["score"]
-    elif len(comments) == 2:
-        # Two comments available
-        selected["comment_one_content"] = comments[0]["content"][:500]
-        selected["comment_one_votes"] = comments[0]["score"]
-        selected["comment_two_content"] = comments[1]["content"][:500]
-        selected["comment_two_votes"] = comments[1]["score"]
-    else:
-        # Three or more comments - select diverse range
-        # Highest voted
-        selected["comment_one_content"] = comments[0]["content"][:500]
-        selected["comment_one_votes"] = comments[0]["score"]
+    # Fill available slots based on number of comments available
+    available_comments = min(len(comments), num_comments)
+    
+    for i in range(available_comments):
+        comment_key_content = f"comment_{get_number_word(i+1)}_content"
+        comment_key_votes = f"comment_{get_number_word(i+1)}_votes"
         
-        # Try to find mid-range comment
-        mid_idx = len(comments) // 2
-        selected["comment_two_content"] = comments[mid_idx]["content"][:500]
-        selected["comment_two_votes"] = comments[mid_idx]["score"]
-        
-        # Lowest voted (but try to avoid heavily downvoted if possible)
-        lowest_idx = -1
-        # If the lowest is heavily downvoted, try to find a low but not negative comment
-        if comments[lowest_idx]["score"] < -5 and len(comments) > 3:
-            for i in range(len(comments) - 1, -1, -1):
-                if comments[i]["score"] >= -1:  # Low but not heavily downvoted
-                    lowest_idx = i
-                    break
-        
-        selected["comment_three_content"] = comments[lowest_idx]["content"][:500]
-        selected["comment_three_votes"] = comments[lowest_idx]["score"]
+        if available_comments == 1:
+            # Only one comment
+            selected[comment_key_content] = comments[0]["content"][:500]
+            selected[comment_key_votes] = comments[0]["score"]
+        elif available_comments == 2:
+            # Two comments - highest and lowest
+            if i == 0:
+                selected[comment_key_content] = comments[0]["content"][:500]
+                selected[comment_key_votes] = comments[0]["score"]
+            else:
+                selected[comment_key_content] = comments[-1]["content"][:500]
+                selected[comment_key_votes] = comments[-1]["score"]
+        else:
+            # Three or more comments - distribute across vote ranges
+            if i == 0:
+                # Highest voted
+                selected[comment_key_content] = comments[0]["content"][:500]
+                selected[comment_key_votes] = comments[0]["score"]
+            elif i == available_comments - 1:
+                # Lowest voted (but avoid heavily downvoted if possible)
+                lowest_idx = -1
+                if comments[lowest_idx]["score"] < -5 and len(comments) > num_comments:
+                    for j in range(len(comments) - 1, -1, -1):
+                        if comments[j]["score"] >= -1:
+                            lowest_idx = j
+                            break
+                selected[comment_key_content] = comments[lowest_idx]["content"][:500]
+                selected[comment_key_votes] = comments[lowest_idx]["score"]
+            else:
+                # Middle range comments - distribute evenly
+                mid_idx = int((len(comments) - 1) * (i / (available_comments - 1)))
+                selected[comment_key_content] = comments[mid_idx]["content"][:500]
+                selected[comment_key_votes] = comments[mid_idx]["score"]
     
     return selected
 
 
-def get_empty_comments():
+def get_empty_comments(num_comments=3):
     """Return empty comment structure when no comments found"""
-    return {
-        "comment_one_content": "",
-        "comment_one_votes": 0,
-        "comment_two_content": "",
-        "comment_two_votes": 0,
-        "comment_three_content": "",
-        "comment_three_votes": 0,
-    }
+    empty_data = {}
+    for i in range(1, num_comments + 1):
+        empty_data[f"comment_{get_number_word(i)}_content"] = ""
+        empty_data[f"comment_{get_number_word(i)}_votes"] = 0
+    return empty_data
+
+
+def get_number_word(num):
+    """Convert number to word (1->one, 2->two, etc.)"""
+    words = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+    if 1 <= num <= 10:
+        return words[num]
+    else:
+        return str(num)  # fallback for numbers > 10
 
 
 def format_post_data(post_data):
@@ -283,8 +291,8 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
                     break
                 pages += 1
                 
-                # Small delay between pages
-                time.sleep(0.3)
+                # Small delay between pages - optimized for speed
+                time.sleep(0.1)
                 
             except Exception as e:
                 print(f"    Strategy {i+1} error: {e}")
@@ -292,8 +300,8 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
         
         print(f"    Strategy {i+1} found: {strategy_results} new posts")
         
-        # Delay between strategies
-        time.sleep(1)
+        # Delay between strategies - reduced
+        time.sleep(0.5)
     
     print(f"    Enhanced search result: {len(results)} posts")
     return results
@@ -372,7 +380,7 @@ def fetch_posts_via_improved_listing(subreddit, start_date, end_date, headers, t
                     break
                 pages += 1
                 
-                time.sleep(0.2)
+                time.sleep(0.1)  # Faster between pages
                 
             except Exception as e:
                 print(f"    Endpoint error: {e}")
@@ -431,8 +439,8 @@ def collect_posts_weekly_windows(subreddit, start_date, end_date, headers, targe
         all_posts.extend(week_posts)
         print(f"    Week {i+1} collected: {len(week_posts)} posts")
         
-        # Longer delay between weeks to be respectful
-        time.sleep(3)
+        # Longer delay between weeks - reduced for efficiency
+        time.sleep(1)
     
     # Sort by timestamp and limit to target
     all_posts.sort(key=lambda x: x.get("created_utc_unix", 0), reverse=True)
@@ -442,30 +450,45 @@ def collect_posts_weekly_windows(subreddit, start_date, end_date, headers, targe
     return final_posts
 
 
-def enhance_posts_with_comments(posts, headers):
-    """Add comment data to existing posts"""
-    print(f"\n--- Fetching comments for {len(posts)} posts ---")
+def enhance_posts_with_comments(posts, headers, num_comments=3):
+    """Add comment data to existing posts - only fetch for posts with comments > 0"""
+    print(f"\n--- Fetching {num_comments} comments per post ---")
+    
+    # Filter posts that actually have comments
+    posts_with_comments = [p for p in posts if p.get('comments', 0) > 0]
+    posts_without_comments = [p for p in posts if p.get('comments', 0) == 0]
+    
+    print(f"  Posts with comments: {len(posts_with_comments)}")
+    print(f"  Posts without comments: {len(posts_without_comments)} (skipping)")
     
     enhanced_posts = []
     
-    for i, post in enumerate(posts):
-        print(f"  Processing post {i+1}/{len(posts)}: {post['post_id']}")
+    # Process posts WITHOUT comments first (just add empty comment data)
+    for post in posts_without_comments:
+        empty_comments = get_empty_comments(num_comments)
+        enhanced_post = {**post, **empty_comments}
+        enhanced_posts.append(enhanced_post)
+    
+    # Process posts WITH comments
+    for i, post in enumerate(posts_with_comments):
+        print(f"  Processing post {i+1}/{len(posts_with_comments)}: {post['post_id']} ({post.get('comments', 0)} comments)")
         
         # Fetch comments for this post
-        comment_data = fetch_post_comments(post['subreddit'], post['post_id'], headers)
+        comment_data = fetch_post_comments(post['subreddit'], post['post_id'], headers, num_comments)
         
         # Combine post data with comment data
         enhanced_post = {**post, **comment_data}
         enhanced_posts.append(enhanced_post)
         
-        # Rate limiting - be respectful
-        if i > 0 and i % 10 == 0:
-            print(f"    Processed {i} posts, taking a brief pause...")
-            time.sleep(2)
+        # Optimized rate limiting
+        if i > 0 and i % 20 == 0:
+            print(f"    Processed {i} posts, brief pause...")
+            time.sleep(1)  # Shorter pause
         else:
-            time.sleep(0.5)  # Small delay between requests
+            time.sleep(0.2)  # Much faster between requests
     
-    print(f"✓ Enhanced all {len(enhanced_posts)} posts with comment data")
+    print(f"✓ Enhanced {len(posts_with_comments)} posts with {num_comments} comments each")
+    print(f"✓ Skipped {len(posts_without_comments)} posts with no comments")
     return enhanced_posts
 
 
@@ -568,8 +591,8 @@ def scrape_to_csv_comprehensive(subs, global_start, global_end, output_dir="csv_
         else:
             print(f"  ✗ No posts found for r/{sub}")
         
-        # Longer delay between subreddits
-        time.sleep(5)
+        # Delay between subreddits - optimized
+        time.sleep(2)
     
     # Generate comprehensive report
     print("\n=== COLLECTION REPORT ===")
@@ -649,7 +672,8 @@ SUBREDDITS = [
 GLOBAL_START = "2025-01-01" 
 GLOBAL_END   = "2025-07-01"  
 OUTPUT_DIR = "csv_data"
-POSTS_PER_SUBREDDIT = 2000  # Increased target since we're covering 7 months
+POSTS_PER_SUBREDDIT = 1000  # Optimized target
+COMMENTS_PER_POST = 3  # Number of comments to extract per post (1-10 recommended)
 
 
 if __name__ == "__main__":
