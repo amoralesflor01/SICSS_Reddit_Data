@@ -4,11 +4,16 @@ This repository contains a python script for obtaining data from subreddits for 
 
 ---
 
-### Extraction of posts, comments, and post metadata from subreddits of interest.
+## Features
 
-You can modify the following lines of code to decide which subreddits you want to pull data from and output the data into CSV files.
+- Extracts posts, comments, and metadata from specified subreddits.
+- Outputs data into CSV files.
+- Allows customization of subreddits, date ranges, and comment depth.
 
-**NOTE:** You can find these lines if code at the very end of the script!
+### Configuration
+
+At the bottom of the script (`reddit_data_extraction_script.py`), you can customize:
+
 
 ```python
 SUBREDDITS = [
@@ -35,19 +40,8 @@ COMMENTS_PER_POST = 3  # Number of comments to extract per post (1-10 recommende
 
 In order to run the script, please follow the instructions listed below
 
-<!-- ### Prerequisites
-
-- Python 3.7+ installed on your system.
-- Flask 2.0.1 and OpenAI Python SDK installed.
-- Set up your OpenAI API key. -->
 
 ### Installation
-
-<!-- 1. Install the required Python packages:
-    ```bash
-    pip install -r requirements.txt
-    ```
-This command will install all the necessary Python packages and dependencies required for your chatbot application. -->
 
 1. Clone the repository to your computer.
 
@@ -55,13 +49,13 @@ This command will install all the necessary Python packages and dependencies req
     git clone git@github.com:amoralesflor01/SICSS_Reddit_Data.git
     ```
 
-1. Navigate to the project directory.
+2. Navigate to the project directory.
  
     ```bash
     cd SICSS_Reddit_Data/
     ```
 
-1. Run the script.
+3. Run the script.
 
     ```bash
     python reddit_data_extraction_script.py
