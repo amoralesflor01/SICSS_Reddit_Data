@@ -92,7 +92,7 @@ In order to run the script, please follow the instructions listed below
 
     Set the following variables to the desired date ranges in the specified format.
 
-    **NOTE:** The farther back in time you wish to pull data from will result in less data being extracted due to API historical data limitations.
+    - **NOTE:** The farther back in time you wish to pull data from will result in less data being extracted due to API historical data limitations.
 
     ```python
     # Date ranges ("YYYY-MM-DD")
