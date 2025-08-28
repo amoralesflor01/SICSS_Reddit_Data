@@ -662,6 +662,8 @@ def format_duration(seconds):
 
 # ===== RESEARCH CONFIGURATION =====
 RESEARCH_NAME = "Political Discussions Jan-July 2025"
+
+# Subreddit names must be lowercase
 SUBREDDITS = [
     "politics", 
     "politicaldiscussion", 
