@@ -205,9 +205,8 @@ def format_post_data(post_data):
         "created_date": dt.datetime.fromtimestamp(d.get("created_utc", 0), dt.timezone.utc).strftime("%Y-%m-%d") if d.get("created_utc") else ""
     }
 
-
 def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, target_posts=1000):
-    """Enhanced search with multiple strategies for better historical coverage"""
+    """Enhanced search better historical coverage"""
     start = to_epoch_start(start_date)
     end = to_epoch_end(end_date)
     
@@ -216,26 +215,27 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
     url = f"https://oauth.reddit.com/r/{subreddit}/search"
     results = []
     
-    # More comprehensive search strategies
+    start_year = start_date.split('-')[0]
+    end_year = end_date.split('-')[0]
+    
+    years_in_range = []
+    for year in range(int(start_year), int(end_year) + 1):
+        years_in_range.append(str(year))
+    
     search_strategies = [
-        # Broad searches
         {"q": "*", "sort": "new", "t": "all"},
         {"q": "the", "sort": "new", "t": "all"},
         {"q": "a", "sort": "new", "t": "all"},
         
-        # Time specific searches
-        {"q": "2025", "sort": "new", "t": "all"} if "2025" in start_date else {"q": "2024", "sort": "new", "t": "all"},
+        *[{"q": year, "sort": "new", "t": "all"} for year in years_in_range],
         
-        # Content-based searches
         {"q": "title:*", "sort": "new", "t": "all"},
         {"q": "selftext:*", "sort": "new", "t": "all"},
         
-        # Different sorting methods
         {"q": "*", "sort": "relevance", "t": "all"},
         {"q": "*", "sort": "hot", "t": "all"},
         {"q": "*", "sort": "top", "t": "all"},
         
-        # Empty search
         {"q": "", "sort": "new", "t": "all"},
     ]
     
@@ -253,7 +253,7 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
         
         pages = 0
         after = None
-        max_search_pages = 20  # Increased pages per strategy
+        max_search_pages = 20
         strategy_results = 0
         
         while pages < max_search_pages and len(results) < target_posts:
@@ -275,7 +275,6 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
                     if ts is None:
                         continue
                         
-                    # Check if post is in our date range
                     if start <= ts <= end:
                         formatted_post = format_post_data(d)
                         # Avoid duplicates
@@ -291,7 +290,6 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
                     break
                 pages += 1
                 
-                # Small delay between pages - optimized for speed
                 time.sleep(0.1)
                 
             except Exception as e:
@@ -300,7 +298,6 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
         
         print(f"    Strategy {i+1} found: {strategy_results} new posts")
         
-        # Delay between strategies
         time.sleep(0.5)
     
     print(f"    Enhanced search result: {len(results)} posts")
@@ -314,7 +311,7 @@ def fetch_posts_via_improved_listing(subreddit, start_date, end_date, headers, t
     
     print(f"  Improved Listing for r/{subreddit}")
     
-    # Try different endpoints
+    # Reddit endpoints
     endpoints = [
         f"https://oauth.reddit.com/r/{subreddit}/new",
         f"https://oauth.reddit.com/r/{subreddit}/hot", 

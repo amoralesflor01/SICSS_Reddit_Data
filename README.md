@@ -24,7 +24,7 @@ This repository contains a python script for obtaining data from subreddits for 
 
 ## How to run script
 
-In order to run the script, please open a terminal on your computer then follow the instructions listed below.
+In order to run the script, please open a terminal on your computer then follow the instructions listed below. The commands are for **UNIX** systems so they will be different in you are a Windows user. I can update them at some point in the future but its likely that I won't so please borrow a Linux computer or Mac for the time being.
 
 ### Installation
 
@@ -33,11 +33,34 @@ In order to run the script, please open a terminal on your computer then follow 
     ```bash
     git clone git@github.com:amoralesflor01/SICSS_Reddit_Data.git
     ```
+    Or use the command below if you have not set up your SSH keys on GitHub
+
+    ```bash
+    git clone https://github.com/amoralesflor01/SICSS_Reddit_Data.git
+    ```
 
 1. Navigate to the project directory.
  
     ```bash
     cd SICSS_Reddit_Data
+    ```
+
+1. Create a Python environment to avoid dependency conflicts on your base environment.
+
+    ```bash
+    python -m venv reddit_scraper_env
+    ```
+
+    Then activate the virtual python environment.
+
+    ```bash
+    source reddit_scraper_env/bin/activate
+    ```
+
+    Next install the necessary dependencies.
+
+    ```bash
+    pip install -r requirements.txt
     ```
 
 1. Create your `config.json` file to add your credentials.
@@ -101,7 +124,7 @@ In order to run the script, please open a terminal on your computer then follow 
 
     ---
 
-2. Edit the python script
+1. Edit the python script
 
     At the bottom of the script (`reddit_data_extraction_script.py`), you can customize which subreddits you want to extract data from.
 
@@ -129,10 +152,27 @@ In order to run the script, please open a terminal on your computer then follow 
     ```
     - Be sure to save your edits by using `ctrl + s` for Linux and PC users, or `command + s` for Mac users.
 
-1. Run the script.
+1. Run the script (with environment still activated):
 
     ```bash
     python reddit_data_extraction_script.py
     ```
 
-Once the script completes, your resulting CSV file or files will be in the folder `csv_data`.
+    Once the script completes, deactivate the environment.
+
+    ```bash
+    deactivate
+    ```
+
+    **Note:** For future runs, just reactivate the python environment (`source reddit_scraper_env/bin/activate`), run the script, then deactivate again.  
+
+## Expected Output:
+
+If directions were followed, you should see the following results:
+- One CSV file for each subreddit specified in the SUBREDDITS list
+- Files will be in the `csv_data` folder
+
+Example files:
+- `politics_data_2025-01-01_to_2025-07-01.csv`
+- `politicaldiscussion_data_2025-01-01_to_2025-07-01.csv`
+- `immigration_data_2025-01-01_to_2025-07-01.csv`
