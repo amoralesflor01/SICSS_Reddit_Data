@@ -143,7 +143,7 @@ def select_diverse_comments(comments, num_comments=3):
                 selected[comment_key_content] = comments[0]["content"][:500]
                 selected[comment_key_votes] = comments[0]["score"]
             elif i == available_comments - 1:
-                # Lowest voted (but avoid heavily downvoted if possible)
+                # Lowest voted
                 lowest_idx = -1
                 if comments[lowest_idx]["score"] < -5 and len(comments) > num_comments:
                     for j in range(len(comments) - 1, -1, -1):
@@ -220,10 +220,10 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
     search_strategies = [
         # Broad searches
         {"q": "*", "sort": "new", "t": "all"},
-        {"q": "the", "sort": "new", "t": "all"},  # Very common word
-        {"q": "a", "sort": "new", "t": "all"},    # Even more common
+        {"q": "the", "sort": "new", "t": "all"},
+        {"q": "a", "sort": "new", "t": "all"},
         
-        # Time-specific searches
+        # Time specific searches
         {"q": "2025", "sort": "new", "t": "all"} if "2025" in start_date else {"q": "2024", "sort": "new", "t": "all"},
         
         # Content-based searches
@@ -235,7 +235,7 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
         {"q": "*", "sort": "hot", "t": "all"},
         {"q": "*", "sort": "top", "t": "all"},
         
-        # Empty search (sometimes works)
+        # Empty search
         {"q": "", "sort": "new", "t": "all"},
     ]
     
@@ -300,7 +300,7 @@ def fetch_posts_via_enhanced_search(subreddit, start_date, end_date, headers, ta
         
         print(f"    Strategy {i+1} found: {strategy_results} new posts")
         
-        # Delay between strategies - reduced
+        # Delay between strategies
         time.sleep(0.5)
     
     print(f"    Enhanced search result: {len(results)} posts")
@@ -354,13 +354,12 @@ def fetch_posts_via_improved_listing(subreddit, start_date, end_date, headers, t
                     ts = d.get("created_utc", 0)
                     if ts is None:
                         continue
-                    
-                    # For new posts, stop if we've gone too far back
+                                        
                     if "new" in endpoint and ts < start:
                         print(f"    Reached date limit at page {pages}")
                         return all_results
                     
-                    # Collect posts within our date range    
+                    # Collect posts within date range    
                     if start <= ts <= end:
                         formatted_post = format_post_data(d)
                         # Avoid duplicates across endpoints
@@ -371,7 +370,6 @@ def fetch_posts_via_improved_listing(subreddit, start_date, end_date, headers, t
                             if len(all_results) >= target_posts:
                                 return all_results
                 
-                # If no posts found in range for several pages, try next endpoint
                 if not found_in_range and pages > 10:
                     break
 
@@ -380,7 +378,7 @@ def fetch_posts_via_improved_listing(subreddit, start_date, end_date, headers, t
                     break
                 pages += 1
                 
-                time.sleep(0.1)  # Faster between pages
+                time.sleep(0.1)
                 
             except Exception as e:
                 print(f"    Endpoint error: {e}")
@@ -420,12 +418,10 @@ def collect_posts_weekly_windows(subreddit, start_date, end_date, headers, targe
     for i, window in enumerate(windows):
         print(f"\n  Week {i+1}: {window['start']} to {window['end']}")
         
-        # Try enhanced search first for each week
         week_posts = fetch_posts_via_enhanced_search(
             subreddit, window['start'], window['end'], headers, posts_per_window
         )
         
-        # If not enough, try improved listing
         if len(week_posts) < posts_per_window * 0.3:
             additional = fetch_posts_via_improved_listing(
                 subreddit, window['start'], window['end'], headers, posts_per_window
@@ -439,7 +435,6 @@ def collect_posts_weekly_windows(subreddit, start_date, end_date, headers, targe
         all_posts.extend(week_posts)
         print(f"    Week {i+1} collected: {len(week_posts)} posts")
         
-        # Longer delay between weeks - reduced for efficiency
         time.sleep(1)
     
     # Sort by timestamp and limit to target
@@ -454,7 +449,6 @@ def enhance_posts_with_comments(posts, headers, num_comments=3):
     """Add comment data to existing posts - only fetch for posts with comments > 0"""
     print(f"\n--- Fetching {num_comments} comments per post ---")
     
-    # Filter posts that actually have comments
     posts_with_comments = [p for p in posts if p.get('comments', 0) > 0]
     posts_without_comments = [p for p in posts if p.get('comments', 0) == 0]
     
@@ -463,29 +457,27 @@ def enhance_posts_with_comments(posts, headers, num_comments=3):
     
     enhanced_posts = []
     
-    # Process posts WITHOUT comments first (just add empty comment data)
+    # Process posts with no comments first
     for post in posts_without_comments:
         empty_comments = get_empty_comments(num_comments)
         enhanced_post = {**post, **empty_comments}
         enhanced_posts.append(enhanced_post)
     
-    # Process posts WITH comments
+    # Process posts with comments
     for i, post in enumerate(posts_with_comments):
         print(f"  Processing post {i+1}/{len(posts_with_comments)}: {post['post_id']} ({post.get('comments', 0)} comments)")
         
-        # Fetch comments for this post
         comment_data = fetch_post_comments(post['subreddit'], post['post_id'], headers, num_comments)
         
-        # Combine post data with comment data
         enhanced_post = {**post, **comment_data}
         enhanced_posts.append(enhanced_post)
         
-        # Optimized rate limiting
+        # Rate limiting
         if i > 0 and i % 20 == 0:
             print(f"    Processed {i} posts, brief pause...")
-            time.sleep(1)  # Shorter pause
+            time.sleep(1)
         else:
-            time.sleep(0.2)  # Much faster between requests
+            time.sleep(0.2)
     
     print(f"✓ Enhanced {len(posts_with_comments)} posts with {num_comments} comments each")
     print(f"✓ Skipped {len(posts_without_comments)} posts with no comments")
@@ -539,7 +531,6 @@ def scrape_to_csv_comprehensive(subs, global_start, global_end, output_dir="csv_
             unique_search = [p for p in additional_search if p["post_id"] not in existing_ids]
             posts.extend(unique_search)
             
-            # Enhanced listing if still needed
             if len(posts) < posts_per_sub * 0.3:
                 additional_listing = fetch_posts_via_improved_listing(
                     sub, global_start, global_end, oauth_headers, posts_per_sub - len(posts)
@@ -549,7 +540,6 @@ def scrape_to_csv_comprehensive(subs, global_start, global_end, output_dir="csv_
                 unique_listing = [p for p in additional_listing if p["post_id"] not in existing_ids]
                 posts.extend(unique_listing)
         
-        # NEW: Enhance posts with comment data
         if posts:
             posts = enhance_posts_with_comments(posts, oauth_headers)
         
@@ -572,18 +562,15 @@ def scrape_to_csv_comprehensive(subs, global_start, global_end, output_dir="csv_
             created_files.append(str(filepath))
             total_posts += len(posts)
             
-            # Date distribution analysis
             dates = [p["created_date"] for p in posts if p["created_date"]]
             unique_dates = len(set(dates))
             
-            # Comment statistics
             posts_with_comments = sum(1 for p in posts if p.get("comment_one_content"))
             
             print(f"  ✓ Saved to: {filepath}")
             print(f"    Posts: {len(posts)}, Unique dates: {unique_dates}")
             print(f"    Posts with comments: {posts_with_comments}/{len(posts)}")
             
-            # Show temporal distribution
             if dates:
                 earliest = min(dates)
                 latest = max(dates)
@@ -591,7 +578,6 @@ def scrape_to_csv_comprehensive(subs, global_start, global_end, output_dir="csv_
         else:
             print(f"  ✗ No posts found for r/{sub}")
         
-        # Delay between subreddits - optimized
         time.sleep(2)
     
     # Generate comprehensive report
@@ -660,8 +646,7 @@ def format_duration(seconds):
         remaining_minutes = (seconds % 3600) / 60
         return f"{hours:.1f} hours, {remaining_minutes:.1f} minutes"
 
-# ===== RESEARCH CONFIGURATION =====
-RESEARCH_NAME = "Political Discussions Jan-July 2025"
+# ===== CONFIGURATION =====
 
 # Subreddit names must be lowercase
 SUBREDDITS = [
@@ -674,7 +659,7 @@ SUBREDDITS = [
 GLOBAL_START = "2025-01-01" 
 GLOBAL_END   = "2025-07-01"  
 OUTPUT_DIR = "csv_data"
-POSTS_PER_SUBREDDIT = 1000  # Optimized target
+POSTS_PER_SUBREDDIT = 1000  # change this to larger number to exract more data if seeking historical data
 COMMENTS_PER_POST = 3  # Number of comments to extract per post (1-10 recommended)
 
 

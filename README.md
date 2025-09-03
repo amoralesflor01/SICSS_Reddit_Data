@@ -24,11 +24,11 @@ This repository contains a python script for obtaining data from subreddits for 
 
 ## How to run script
 
-In order to run the script, please follow the instructions listed below
+In order to run the script, please open a terminal on your computer then follow the instructions listed below.
 
 ### Installation
 
-1. Clone the repository to your computer.
+1. Clone the repository to a preferred directory on your computer.
 
     ```bash
     git clone git@github.com:amoralesflor01/SICSS_Reddit_Data.git
@@ -37,19 +37,21 @@ In order to run the script, please follow the instructions listed below
 1. Navigate to the project directory.
  
     ```bash
-    cd SICSS_Reddit_Data/
+    cd SICSS_Reddit_Data
     ```
 
-1. Create your `config.json` file to add your credentials. Then follow the instructions below.
+1. Create your `config.json` file to add your credentials.
 
     ```bash
     touch config.json
     ```
+    Then follow the instructions below.
+
     ### Configuration
 
     This script requires a `config.json` file to store your API credentials and other sensitive information. 
 
-    **Important:** Do **not** upload your `config.json` file to GitHub or share it publicly. It contains private keys and passwords.
+    **Important:** Do not upload your `config.json` file to GitHub or share it publicly. It contains private keys and passwords.
 
     - Add the following text inside the file by copying and pasting then replace with your real credentials:
 
@@ -62,6 +64,7 @@ In order to run the script, please follow the instructions listed below
     "user_agent": "example_app/0.1 by your_username"
     }
     ```
+    Then save by pressing `ctrl + s` for Linux and PC users, or `command + s` for Mac users.
 
     ### Example (with fake data)
 
@@ -75,6 +78,28 @@ In order to run the script, please follow the instructions listed below
     }
     ```
     If you are unsure on how to create/obtain your credetials please visit the following [YouTube tutorial](https://www.youtube.com/watch?v=x9boO9x3TDA)
+
+    ---
+
+    ### Sidenote (Please read if you plan on uploading to GitHub or forking the repo. Otherwise skip to the next step.)
+
+    If you fork this repo and or plan on uploading to GitHub, be sure to create a `.gitignore` file and add the `config.json` file to the list like so:
+
+    Create the `.gitignore` file within the root directory (The repo folder) by using the following command. 
+    ```bash
+    touch .gitignore
+    ```
+    (*You will not be able to see this file because it is a hidden file. Files and directories that have a `.` in front of their name are 'hidden files' which means you cannot see them like traditional files unless you activate "Show hidden files" on you files explorer program or using the command `ls -a` which lists all files and directories including hidden ones.*)
+
+    - Then add the following line to the file:
+
+    **config.json**
+
+    This will ensure your private data stays locally on your computer and is not uploaded to GitHub.
+
+    Then save by pressing `ctrl + s` for Linux and PC users, or `command + s` for Mac users.
+
+    ---
 
 2. Edit the python script
 
