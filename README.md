@@ -28,7 +28,7 @@ In order to run the script, please open a terminal on your computer then follow 
 
 ### Installation
 
-1. Clone the repository to a preferred directory on your computer.
+1. Clone the repository to a preferred directory on your computer (i.e. Documents).
 
     ```bash
     git clone git@github.com:amoralesflor01/SICSS_Reddit_Data.git
@@ -68,6 +68,7 @@ In order to run the script, please open a terminal on your computer then follow 
     ```powershell
     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
     ```
+    * When prompted, type press `Y` then `Enter` to allow the change  
 
     Next install the necessary dependencies.
 
@@ -161,7 +162,7 @@ In order to run the script, please open a terminal on your computer then follow 
     deactivate
     ```
 
-    **Note:** For future runs, just reactivate the python environment (`source reddit_scraper_env/bin/activate`), run the script, then deactivate again.  
+    **Note:** For future runs, just reactivate the python environment (***See step 3***), then run the script, then deactivate again.  
 
 ### Expected Output:
 
