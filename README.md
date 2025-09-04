@@ -24,7 +24,7 @@ This repository contains a python script for obtaining data from subreddits for 
 
 ## How to run script
 
-In order to run the script, please open a terminal on your computer then follow the instructions listed below. The commands are for **UNIX** systems so they will be different in you are a Windows user. I can update them at some point in the future but its likely that I won't so please borrow a Linux computer or Mac for the time being.
+In order to run the script, please open a terminal on your computer then follow the instructions listed below. The commands are for **UNIX** systems so they will be different if you are a Windows user. I will update them at some point in the future but for the time being, please borrow a Linux/Mac computer or try finding the Windows equivalent commands online.
 
 ### Installation
 
@@ -33,7 +33,7 @@ In order to run the script, please open a terminal on your computer then follow 
     ```bash
     git clone git@github.com:amoralesflor01/SICSS_Reddit_Data.git
     ```
-    Or use the command below if you have not set up your SSH keys on GitHub
+    Or use the command below if you have not set up your SSH keys on GitHub.
 
     ```bash
     git clone https://github.com/amoralesflor01/SICSS_Reddit_Data.git
@@ -102,28 +102,6 @@ In order to run the script, please open a terminal on your computer then follow 
     ```
     If you are unsure on how to create/obtain your credetials please visit the following [YouTube tutorial](https://www.youtube.com/watch?v=x9boO9x3TDA)
 
-    ---
-
-    ### Sidenote (Please read if you plan on uploading to GitHub or forking the repo. Otherwise skip to the next step.)
-
-    If you fork this repo and or plan on uploading to GitHub, be sure to create a `.gitignore` file and add the `config.json` file to the list like so:
-
-    Create the `.gitignore` file within the root directory (The repo folder) by using the following command. 
-    ```bash
-    touch .gitignore
-    ```
-    (*You will not be able to see this file because it is a hidden file. Files and directories that have a `.` in front of their name are 'hidden files' which means you cannot see them like traditional files unless you activate "Show hidden files" on you files explorer program or using the command `ls -a` which lists all files and directories including hidden ones.*)
-
-    - Then add the following line to the file:
-
-    **config.json**
-
-    This will ensure your private data stays locally on your computer and is not uploaded to GitHub.
-
-    Then save by pressing `ctrl + s` for Linux and PC users, or `command + s` for Mac users.
-
-    ---
-
 1. Edit the python script
 
     At the bottom of the script (`reddit_data_extraction_script.py`), you can customize which subreddits you want to extract data from.
@@ -166,11 +144,11 @@ In order to run the script, please open a terminal on your computer then follow 
 
     **Note:** For future runs, just reactivate the python environment (`source reddit_scraper_env/bin/activate`), run the script, then deactivate again.  
 
-## Expected Output:
+### Expected Output:
 
 If directions were followed, you should see the following results:
-- One CSV file for each subreddit specified in the SUBREDDITS list
-- Files will be in the `csv_data` folder
+- One CSV file for each subreddit specified in the SUBREDDITS list.
+- Files will be in the `csv_data` folder (This will be created at runtime).
 
 Example files:
 - `politics_data_2025-01-01_to_2025-07-01.csv`
