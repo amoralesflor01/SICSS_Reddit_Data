@@ -63,12 +63,12 @@ In order to run the script, please open a terminal on your computer then follow 
     ```
 
     ***Note for Windows users***  
-    If you recieve the following error *"running scripts is disabled on this system"* when trying to activate your environment, try running this command once in the same PowerShell window:
+    If you recieve the following error *"running scripts is disabled on this system"* when trying to activate your environment, try running this command once in the same PowerShell terminal:
 
     ```powershell
     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
     ```
-    * When prompted, type press `Y` then `Enter` to allow the change  
+    * When prompted, type `Y` then `Enter` to allow the change  
 
     Next install the necessary dependencies.
 
@@ -162,7 +162,7 @@ In order to run the script, please open a terminal on your computer then follow 
     deactivate
     ```
 
-    **Note:** For future runs, just reactivate the python environment (***See step 3***), then run the script, then deactivate again.  
+    **Note:** For future runs, simply reactivate the python environment (***See step 3***), then run the script, then deactivate again.  
 
 ### Expected Output:
 
