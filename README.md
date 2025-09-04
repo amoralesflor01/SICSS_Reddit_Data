@@ -24,11 +24,11 @@ This repository contains a python script for obtaining data from subreddits for 
 
 ## How to run script
 
-In order to run the script, please open a terminal on your computer then follow the instructions listed below. The commands are for **UNIX** systems so they will be different if you are a Windows user. I will update them at some point in the future but for the time being, please borrow a Linux/Mac computer or try finding the Windows equivalent commands online.
+In order to run the script, please open a terminal on your computer then follow the instructions listed below. The commands are for **UNIX** systems so they will be different if you are a Windows user. If you are running on Windows, please use **Powershell** and I will specify where different commands should be used although most commands will be similar.
 
 ### Installation
 
-1. Clone the repository to a preferred directory on your computer.
+1. Clone the repository to a preferred directory on your computer (i.e. Documents).
 
     ```bash
     git clone git@github.com:amoralesflor01/SICSS_Reddit_Data.git
@@ -53,9 +53,22 @@ In order to run the script, please open a terminal on your computer then follow 
 
     Then activate the virtual python environment.
 
+    **Linux/Mac**
     ```bash
     source reddit_scraper_env/bin/activate
     ```
+    **Windows Powershell**
+    ```powershell
+    .\reddit_scraper_env\Scripts\Activate.ps1
+    ```
+
+    ***Note for Windows users***  
+    If you recieve the following error *"running scripts is disabled on this system"* when trying to activate your environment, try running this command once in the same PowerShell window:
+
+    ```powershell
+    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+    ```
+    * When prompted, type press `Y` then `Enter` to allow the change  
 
     Next install the necessary dependencies.
 
@@ -65,9 +78,16 @@ In order to run the script, please open a terminal on your computer then follow 
 
 1. Create your `config.json` file to add your credentials.
 
+    **Linux/Mac**
     ```bash
     touch config.json
     ```
+    
+    **Windows Powershell**
+    ```powershell
+    New-Item -Name config.json -ItemType File
+    ```
+
     Then follow the instructions below.
 
     ### Configuration
@@ -142,7 +162,7 @@ In order to run the script, please open a terminal on your computer then follow 
     deactivate
     ```
 
-    **Note:** For future runs, just reactivate the python environment (`source reddit_scraper_env/bin/activate`), run the script, then deactivate again.  
+    **Note:** For future runs, just reactivate the python environment (***See step 3***), then run the script, then deactivate again.  
 
 ### Expected Output:
 
