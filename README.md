@@ -176,3 +176,5 @@ Example files:
 - `immigration_data_2025-01-01_to_2025-07-01.csv`
 
 ALEXIS
+
+MONDAY
