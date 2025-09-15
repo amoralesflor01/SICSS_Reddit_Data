@@ -178,3 +178,5 @@ Example files:
 ALEXIS
 
 SEPTEMBER
+
+MONDAY
