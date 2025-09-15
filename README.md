@@ -180,8 +180,6 @@ Example files:
 
 Alex
 
-
-
-
+September
 
 Monday
